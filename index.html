@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>سرعت‌سنج GPS</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: #000;
+    color: #fff;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 20px 20px;
+  }
+
+  .icon-btn {
+    background: none;
+    border: none;
+    color: #444;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+  }
+  .icon-btn svg { width: 20px; height: 20px; }
+  .icon-btn.active { color: #fff; }
+
+  .topbar {
+    width: 100%;
+    max-width: 340px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+
+  .fadeable {
+    opacity: 1;
+    transition: opacity 0.6s ease, visibility 0.6s;
+  }
+  body.dimmed .fadeable {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .speed-block {
+    text-align: center;
+    transition: transform 0.6s ease;
+  }
+  body.dimmed .speed-block {
+    transform: translateY(var(--center-offset, 0px));
+  }
+  #speed {
+    font-size: 30vw;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -3px;
+    font-variant-numeric: tabular-nums;
+    color: #fff;
+  }
+  #unit {
+    font-size: 1rem;
+    color: #666;
+    margin-top: 4px;
+    letter-spacing: 0.5px;
+  }
+
+  #status {
+    margin-top: 20px;
+    font-size: 0.95rem;
+    color: #999;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #statusDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #444;
+  }
+  #statusDot.live { background: #30d158; }
+  #statusDot.error { background: #ff453a; }
+
+  .meta {
+    width: 100%;
+    max-width: 340px;
+    margin-top: 28px;
+    border-top: 1px solid #1c1c1e;
+  }
+  .meta-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 4px;
+    border-bottom: 1px solid #1c1c1e;
+    font-size: 0.8rem;
+    color: #666;
+  }
+  .meta-row span:last-child {
+    color: #aaa;
+    font-variant-numeric: tabular-nums;
+  }
+
+  button {
+    font-size: 1.1rem;
+    padding: 16px 48px;
+    margin-top: 36px;
+    border-radius: 100px;
+    border: none;
+    font-weight: 600;
+  }
+  #startBtn { background: #fff; color: #000; }
+  #stopBtn { background: #1c1c1e; color: #fff; }
+
+  #error {
+    color: #ff453a;
+    font-size: 0.85rem;
+    margin-top: 16px;
+    text-align: center;
+    max-width: 300px;
+  }
+
+  .footer {
+    margin-top: auto;
+    padding-top: 30px;
+  }
+  #infoBtn {
+    background: none;
+    color: #555;
+    font-size: 0.8rem;
+    padding: 8px;
+    margin: 0;
+    text-decoration: underline;
+    font-weight: 400;
+  }
+
+  #infoModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.92);
+    z-index: 10;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  #infoModal.open { display: flex; }
+  .modal-box {
+    max-width: 380px;
+    font-size: 0.85rem;
+    color: #999;
+    line-height: 1.8;
+    text-align: right;
+  }
+  .modal-box h3 {
+    color: #fff;
+    font-size: 1rem;
+    margin-bottom: 12px;
+  }
+  #closeInfo {
+    display: block;
+    margin: 24px auto 0;
+    background: #1c1c1e;
+    color: #fff;
+    padding: 12px 40px;
+    font-size: 0.9rem;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar fadeable">
+  <button id="batteryBtn" class="icon-btn" aria-label="حالت کم‌مصرف">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="18" height="10" rx="2"/><line x1="22" y1="10" x2="22" y2="14"/></svg>
+  </button>
+  <button id="fullscreenBtn" class="icon-btn" aria-label="تمام‌صفحه">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/></svg>
+  </button>
+</div>
+
+<div class="speed-block">
+  <div id="speed">0</div>
+  <div id="unit" class="fadeable">کیلومتر بر ساعت</div>
+</div>
+
+<div id="status" class="fadeable"><span id="statusDot"></span><span id="statusText">متوقف</span></div>
+
+<div class="meta fadeable">
+  <div class="meta-row"><span>دقت GPS</span><span id="accuracy">-</span></div>
+  <div class="meta-row"><span>منبع سرعت</span><span id="source">-</span></div>
+  <div class="meta-row"><span>سرعت خام</span><span id="raw">-</span></div>
+</div>
+
+<div id="error" class="fadeable"></div>
+
+<button id="startBtn" class="fadeable">شروع</button>
+<button id="stopBtn" class="fadeable" style="display:none">توقف</button>
+
+<div class="footer fadeable">
+  <button id="infoBtn">این ابزار چطور کار می‌کند؟</button>
+</div>
+
+<div id="infoModal">
+  <div class="modal-box">
+    <h3>دربارهٔ دقت اندازه‌گیری</h3>
+    ترجیح ما استفاده از position.coords.speed است، چون گیرنده GPS گوشی از داده‌های داپلر ماهواره‌ها و اطلاعات حرکتی اضافی برای محاسبه سرعت لحظه‌ای استفاده می‌کند که معمولاً دقیق‌تر از محاسبه فاصله بین دو نقطه پیاپی است.
+    <br><br>
+    اگر این مقدار در دسترس نباشد، به‌عنوان جایگزین از فرمول هاورساین و فاصله زمانی واقعی بین دو fix استفاده می‌شود.
+    <br><br>
+    دقت واقعی به سخت‌افزار GNSS گوشی، کیفیت دریافت ماهواره، پدیده multipath، مجوز دسترسی و پیاده‌سازی مرورگر بستگی دارد؛ این صفحه دقتی فراتر از سخت‌افزار گوشی تولید نمی‌کند.
+    <button id="closeInfo">بستن</button>
+  </div>
+</div>
+
+<script>
+const speedEl = document.getElementById('speed');
+const accEl = document.getElementById('accuracy');
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+const sourceEl = document.getElementById('source');
+const rawEl = document.getElementById('raw');
+const errEl = document.getElementById('error');
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const fullscreenBtn = document.getElementById('fullscreenBtn');
+const batteryBtn = document.getElementById('batteryBtn');
+const speedBlock = document.querySelector('.speed-block');
+const infoBtn = document.getElementById('infoBtn');
+const infoModal = document.getElementById('infoModal');
+const closeInfo = document.getElementById('closeInfo');
+
+const DEG_TO_RAD = Math.PI / 180;
+const EARTH_RADIUS_M = 6371000;
+const EMA_ALPHA = 0.35;
+const DIM_DELAY_MS = 5000;
+
+let watchId = null;
+let lastFix = null;
+let ema = null;
+let wakeLock = null;
+let dimTimer = null;
+
+function setStatus(text, state) {
+  statusText.textContent = text;
+  statusDot.className = state || '';
+}
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const rLat1 = lat1 * DEG_TO_RAD;
+  const rLat2 = lat2 * DEG_TO_RAD;
+  const dLat = rLat2 - rLat1;
+  const dLon = (lon2 - lon1) * DEG_TO_RAD;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(rLat1) * Math.cos(rLat2) * Math.sin(dLon / 2) ** 2;
+  return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(a));
+}
+
+function computeFallbackSpeed(pos, accuracy) {
+  if (!lastFix) return { speedMps: null, source: 'در انتظار fix دوم برای fallback' };
+
+  const dt = (pos.timestamp - lastFix.timestamp) / 1000;
+  if (!(dt > 0 && dt < 30 && Number.isFinite(dt))) {
+    return { speedMps: null, source: 'رد شد: بازه زمانی نامعتبر' };
+  }
+  if (accuracy != null && accuracy > 50) {
+    return { speedMps: null, source: 'رد شد: دقت GPS ضعیف (>50m)' };
+  }
+
+  const dist = haversine(lastFix.lat, lastFix.lon, pos.coords.latitude, pos.coords.longitude);
+  const speedMps = dist / dt;
+  if (speedMps > 100) {
+    return { speedMps: null, source: 'رد شد: پرش غیرواقعی مکان' };
+  }
+  return { speedMps, source: 'Haversine (فاصله ÷ زمان، fallback)' };
+}
+
+function handlePosition(pos) {
+  errEl.textContent = '';
+  setStatus('فعال', 'live');
+
+  const c = pos.coords;
+  const accuracy = c.accuracy;
+  accEl.textContent = accuracy != null ? accuracy.toFixed(1) + ' متر' : '-';
+
+  let speedMps, source;
+  if (c.speed != null && !Number.isNaN(c.speed)) {
+    speedMps = c.speed;
+    source = 'position.coords.speed (GPS مستقیم)';
+  } else {
+    ({ speedMps, source } = computeFallbackSpeed(pos, accuracy));
+  }
+
+  lastFix = { lat: c.latitude, lon: c.longitude, timestamp: pos.timestamp };
+  sourceEl.textContent = source;
+
+  if (speedMps == null) return;
+
+  rawEl.textContent = (speedMps * 3.6).toFixed(1) + ' km/h';
+
+  const stationaryThreshold = accuracy != null ? Math.max(0.5, accuracy / 10) : 0.5;
+  const effectiveSpeed = speedMps < stationaryThreshold ? 0 : speedMps;
+  ema = ema == null ? effectiveSpeed : EMA_ALPHA * effectiveSpeed + (1 - EMA_ALPHA) * ema;
+  speedEl.textContent = Math.round(ema * 3.6);
+}
+
+function handleError(err) {
+  const messages = {
+    [err.PERMISSION_DENIED]: 'دسترسی به موقعیت مکانی رد شد',
+    [err.POSITION_UNAVAILABLE]: 'موقعیت مکانی در دسترس نیست',
+    [err.TIMEOUT]: 'زمان دریافت موقعیت تمام شد'
+  };
+  errEl.textContent = messages[err.code] || ('خطای ناشناخته: ' + err.message);
+  setStatus('خطا', 'error');
+}
+
+function start() {
+  if (!navigator.geolocation) {
+    errEl.textContent = 'مرورگر شما از Geolocation پشتیبانی نمی‌کند';
+    return;
+  }
+  lastFix = null;
+  ema = null;
+  setStatus('در حال جستجوی GPS...');
+  watchId = navigator.geolocation.watchPosition(handlePosition, handleError, {
+    enableHighAccuracy: true,
+    maximumAge: 0,
+    timeout: 2147483647
+  });
+  startBtn.style.display = 'none';
+  stopBtn.style.display = 'inline-block';
+}
+
+function stop() {
+  if (watchId != null) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
+  setStatus('متوقف');
+  startBtn.style.display = 'inline-block';
+  stopBtn.style.display = 'none';
+}
+
+async function acquireWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+  } catch (e) {}
+}
+
+function releaseWakeLock() {
+  wakeLock?.release();
+  wakeLock = null;
+}
+
+function scheduleDim() {
+  clearTimeout(dimTimer);
+  document.body.classList.remove('dimmed');
+  if (!batteryBtn.classList.contains('active')) return;
+
+  dimTimer = setTimeout(() => {
+    const rect = speedBlock.getBoundingClientRect();
+    const offset = window.innerHeight / 2 - (rect.top + rect.height / 2);
+    document.documentElement.style.setProperty('--center-offset', offset + 'px');
+    document.body.classList.add('dimmed');
+  }, DIM_DELAY_MS);
+}
+
+startBtn.addEventListener('click', start);
+stopBtn.addEventListener('click', stop);
+
+fullscreenBtn.addEventListener('click', () => {
+  if (document.fullscreenElement) {
+    document.exitFullscreen();
+  } else {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+});
+document.addEventListener('fullscreenchange', () => {
+  const isFullscreen = !!document.fullscreenElement;
+  fullscreenBtn.classList.toggle('active', isFullscreen);
+  isFullscreen ? acquireWakeLock() : releaseWakeLock();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && document.fullscreenElement) acquireWakeLock();
+});
+
+batteryBtn.addEventListener('click', () => {
+  batteryBtn.classList.toggle('active');
+  scheduleDim();
+});
+document.addEventListener('touchstart', scheduleDim);
+document.addEventListener('click', scheduleDim);
+
+infoBtn.addEventListener('click', () => infoModal.classList.add('open'));
+closeInfo.addEventListener('click', () => infoModal.classList.remove('open'));
+</script>
+</body>
+</html>
