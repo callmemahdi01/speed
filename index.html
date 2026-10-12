@@ -14,6 +14,7 @@
   }
   body {
     min-height: 100vh;
+    min-height: 100dvh;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -224,36 +225,44 @@
 </div>
 
 <script>
-const speedEl = document.getElementById('speed');
-const accEl = document.getElementById('accuracy');
-const statusDot = document.getElementById('statusDot');
-const statusText = document.getElementById('statusText');
-const sourceEl = document.getElementById('source');
-const rawEl = document.getElementById('raw');
-const errEl = document.getElementById('error');
-const startBtn = document.getElementById('startBtn');
-const stopBtn = document.getElementById('stopBtn');
-const fullscreenBtn = document.getElementById('fullscreenBtn');
-const batteryBtn = document.getElementById('batteryBtn');
+const $ = id => document.getElementById(id);
+const speedEl = $('speed');
+const accEl = $('accuracy');
+const statusDot = $('statusDot');
+const statusText = $('statusText');
+const sourceEl = $('source');
+const rawEl = $('raw');
+const errEl = $('error');
+const startBtn = $('startBtn');
+const stopBtn = $('stopBtn');
+const fullscreenBtn = $('fullscreenBtn');
+const batteryBtn = $('batteryBtn');
+const infoBtn = $('infoBtn');
+const infoModal = $('infoModal');
+const closeInfo = $('closeInfo');
 const speedBlock = document.querySelector('.speed-block');
-const infoBtn = document.getElementById('infoBtn');
-const infoModal = document.getElementById('infoModal');
-const closeInfo = document.getElementById('closeInfo');
 
 const DEG_TO_RAD = Math.PI / 180;
 const EARTH_RADIUS_M = 6371000;
-const EMA_ALPHA = 0.35;
+const EMA_TAU_S = 2.5;
 const DIM_DELAY_MS = 5000;
 
 let watchId = null;
+let tracking = false;
 let lastFix = null;
 let ema = null;
+let lastEmaTs = null;
 let wakeLock = null;
 let dimTimer = null;
 
+function setText(el, value) {
+  if (el.textContent !== value) el.textContent = value;
+}
+
 function setStatus(text, state) {
-  statusText.textContent = text;
-  statusDot.className = state || '';
+  setText(statusText, text);
+  const cls = state || '';
+  if (statusDot.className !== cls) statusDot.className = cls;
 }
 
 function haversine(lat1, lon1, lat2, lon2) {
@@ -284,13 +293,25 @@ function computeFallbackSpeed(pos, accuracy) {
   return { speedMps, source: 'Haversine (distance ÷ time, fallback)' };
 }
 
+function smooth(speedMps, ts) {
+  if (ema == null) {
+    ema = speedMps;
+  } else {
+    const dt = Math.min(Math.max((ts - lastEmaTs) / 1000, 0.1), 10);
+    const alpha = 1 - Math.exp(-dt / EMA_TAU_S);
+    ema = alpha * speedMps + (1 - alpha) * ema;
+  }
+  lastEmaTs = ts;
+  return ema;
+}
+
 function handlePosition(pos) {
-  errEl.textContent = '';
+  setText(errEl, '');
   setStatus('Active', 'live');
 
   const c = pos.coords;
   const accuracy = c.accuracy;
-  accEl.textContent = accuracy != null ? accuracy.toFixed(1) + ' m' : '-';
+  setText(accEl, accuracy != null ? accuracy.toFixed(1) + ' m' : '-');
 
   let speedMps, source;
   if (c.speed != null && !Number.isNaN(c.speed)) {
@@ -301,16 +322,15 @@ function handlePosition(pos) {
   }
 
   lastFix = { lat: c.latitude, lon: c.longitude, timestamp: pos.timestamp };
-  sourceEl.textContent = source;
+  setText(sourceEl, source);
 
   if (speedMps == null) return;
 
-  rawEl.textContent = (speedMps * 3.6).toFixed(1) + ' km/h';
+  setText(rawEl, (speedMps * 3.6).toFixed(1) + ' km/h');
 
   const stationaryThreshold = accuracy != null ? Math.max(0.5, accuracy / 10) : 0.5;
   const effectiveSpeed = speedMps < stationaryThreshold ? 0 : speedMps;
-  ema = ema == null ? effectiveSpeed : EMA_ALPHA * effectiveSpeed + (1 - EMA_ALPHA) * ema;
-  speedEl.textContent = Math.round(ema * 3.6);
+  setText(speedEl, String(Math.round(smooth(effectiveSpeed, pos.timestamp) * 3.6)));
 }
 
 function handleError(err) {
@@ -319,47 +339,61 @@ function handleError(err) {
     [err.POSITION_UNAVAILABLE]: 'Location is unavailable',
     [err.TIMEOUT]: 'Location request timed out'
   };
-  errEl.textContent = messages[err.code] || ('Unknown error: ' + err.message);
+  setText(errEl, messages[err.code] || ('Unknown error: ' + err.message));
   setStatus('Error', 'error');
 }
 
-function start() {
-  if (!navigator.geolocation) {
-    errEl.textContent = 'Your browser does not support Geolocation';
-    return;
-  }
+function beginWatch() {
+  if (watchId != null) return;
   lastFix = null;
   ema = null;
+  lastEmaTs = null;
   setStatus('Searching for GPS...');
   watchId = navigator.geolocation.watchPosition(handlePosition, handleError, {
     enableHighAccuracy: true,
     maximumAge: 0,
     timeout: 2147483647
   });
-  startBtn.style.display = 'none';
-  stopBtn.style.display = 'inline-block';
 }
 
-function stop() {
-  if (watchId != null) {
-    navigator.geolocation.clearWatch(watchId);
-    watchId = null;
-  }
-  setStatus('Stopped');
-  startBtn.style.display = 'inline-block';
-  stopBtn.style.display = 'none';
+function endWatch() {
+  if (watchId == null) return;
+  navigator.geolocation.clearWatch(watchId);
+  watchId = null;
 }
 
 async function acquireWakeLock() {
-  if (!('wakeLock' in navigator)) return;
+  if (wakeLock || !('wakeLock' in navigator)) return;
   try {
     wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
   } catch (e) {}
 }
 
 function releaseWakeLock() {
   wakeLock?.release();
   wakeLock = null;
+}
+
+function start() {
+  if (!navigator.geolocation) {
+    setText(errEl, 'Your browser does not support Geolocation');
+    return;
+  }
+  tracking = true;
+  beginWatch();
+  acquireWakeLock();
+  startBtn.style.display = 'none';
+  stopBtn.style.display = 'inline-block';
+}
+
+function stop() {
+  tracking = false;
+  endWatch();
+  releaseWakeLock();
+  setStatus('Stopped');
+  startBtn.style.display = 'inline-block';
+  stopBtn.style.display = 'none';
 }
 
 function scheduleDim() {
@@ -386,20 +420,24 @@ fullscreenBtn.addEventListener('click', () => {
   }
 });
 document.addEventListener('fullscreenchange', () => {
-  const isFullscreen = !!document.fullscreenElement;
-  fullscreenBtn.classList.toggle('active', isFullscreen);
-  isFullscreen ? acquireWakeLock() : releaseWakeLock();
+  fullscreenBtn.classList.toggle('active', !!document.fullscreenElement);
 });
+
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && document.fullscreenElement) acquireWakeLock();
+  if (!tracking) return;
+  if (document.visibilityState === 'hidden') {
+    endWatch();
+  } else {
+    beginWatch();
+    acquireWakeLock();
+  }
 });
 
 batteryBtn.addEventListener('click', () => {
   batteryBtn.classList.toggle('active');
   scheduleDim();
 });
-document.addEventListener('touchstart', scheduleDim);
-document.addEventListener('click', scheduleDim);
+document.addEventListener('pointerdown', scheduleDim);
 
 infoBtn.addEventListener('click', () => infoModal.classList.add('open'));
 closeInfo.addEventListener('click', () => infoModal.classList.remove('open'));
