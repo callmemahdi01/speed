@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fa" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>سرعت‌سنج GPS</title>
+<title>GPS Speedometer</title>
 <style>
   * { box-sizing: border-box; }
   html, body {
@@ -161,7 +161,7 @@
     font-size: 0.85rem;
     color: #999;
     line-height: 1.8;
-    text-align: right;
+    text-align: left;
   }
   .modal-box h3 {
     color: #fff;
@@ -181,45 +181,45 @@
 <body>
 
 <div class="topbar fadeable">
-  <button id="batteryBtn" class="icon-btn" aria-label="حالت کم‌مصرف">
+  <button id="batteryBtn" class="icon-btn" aria-label="Low power mode">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="18" height="10" rx="2"/><line x1="22" y1="10" x2="22" y2="14"/></svg>
   </button>
-  <button id="fullscreenBtn" class="icon-btn" aria-label="تمام‌صفحه">
+  <button id="fullscreenBtn" class="icon-btn" aria-label="Fullscreen">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/></svg>
   </button>
 </div>
 
 <div class="speed-block">
   <div id="speed">0</div>
-  <div id="unit" class="fadeable">کیلومتر بر ساعت</div>
+  <div id="unit" class="fadeable">km/h</div>
 </div>
 
-<div id="status" class="fadeable"><span id="statusDot"></span><span id="statusText">متوقف</span></div>
+<div id="status" class="fadeable"><span id="statusDot"></span><span id="statusText">Stopped</span></div>
 
 <div class="meta fadeable">
-  <div class="meta-row"><span>دقت GPS</span><span id="accuracy">-</span></div>
-  <div class="meta-row"><span>منبع سرعت</span><span id="source">-</span></div>
-  <div class="meta-row"><span>سرعت خام</span><span id="raw">-</span></div>
+  <div class="meta-row"><span>GPS accuracy</span><span id="accuracy">-</span></div>
+  <div class="meta-row"><span>Speed source</span><span id="source">-</span></div>
+  <div class="meta-row"><span>Raw speed</span><span id="raw">-</span></div>
 </div>
 
 <div id="error" class="fadeable"></div>
 
-<button id="startBtn" class="fadeable">شروع</button>
-<button id="stopBtn" class="fadeable" style="display:none">توقف</button>
+<button id="startBtn" class="fadeable">Start</button>
+<button id="stopBtn" class="fadeable" style="display:none">Stop</button>
 
 <div class="footer fadeable">
-  <button id="infoBtn">این ابزار چطور کار می‌کند؟</button>
+  <button id="infoBtn">How does this work?</button>
 </div>
 
 <div id="infoModal">
   <div class="modal-box">
-    <h3>دربارهٔ دقت اندازه‌گیری</h3>
-    ترجیح ما استفاده از position.coords.speed است، چون گیرنده GPS گوشی از داده‌های داپلر ماهواره‌ها و اطلاعات حرکتی اضافی برای محاسبه سرعت لحظه‌ای استفاده می‌کند که معمولاً دقیق‌تر از محاسبه فاصله بین دو نقطه پیاپی است.
+    <h3>About measurement accuracy</h3>
+    We prefer position.coords.speed because the phone's GPS receiver uses satellite Doppler data and extra motion information to compute instantaneous speed, which is usually more accurate than calculating the distance between two consecutive points.
     <br><br>
-    اگر این مقدار در دسترس نباشد، به‌عنوان جایگزین از فرمول هاورساین و فاصله زمانی واقعی بین دو fix استفاده می‌شود.
+    If that value is unavailable, the Haversine formula and the real time difference between two fixes are used as a fallback.
     <br><br>
-    دقت واقعی به سخت‌افزار GNSS گوشی، کیفیت دریافت ماهواره، پدیده multipath، مجوز دسترسی و پیاده‌سازی مرورگر بستگی دارد؛ این صفحه دقتی فراتر از سخت‌افزار گوشی تولید نمی‌کند.
-    <button id="closeInfo">بستن</button>
+    Actual accuracy depends on the phone's GNSS hardware, satellite reception quality, multipath effects, permissions, and browser implementation; this page cannot produce accuracy beyond what the phone hardware provides.
+    <button id="closeInfo">Close</button>
   </div>
 </div>
 
@@ -266,36 +266,36 @@ function haversine(lat1, lon1, lat2, lon2) {
 }
 
 function computeFallbackSpeed(pos, accuracy) {
-  if (!lastFix) return { speedMps: null, source: 'در انتظار fix دوم برای fallback' };
+  if (!lastFix) return { speedMps: null, source: 'Waiting for second fix (fallback)' };
 
   const dt = (pos.timestamp - lastFix.timestamp) / 1000;
   if (!(dt > 0 && dt < 30 && Number.isFinite(dt))) {
-    return { speedMps: null, source: 'رد شد: بازه زمانی نامعتبر' };
+    return { speedMps: null, source: 'Skipped: invalid time interval' };
   }
   if (accuracy != null && accuracy > 50) {
-    return { speedMps: null, source: 'رد شد: دقت GPS ضعیف (>50m)' };
+    return { speedMps: null, source: 'Skipped: poor GPS accuracy (>50m)' };
   }
 
   const dist = haversine(lastFix.lat, lastFix.lon, pos.coords.latitude, pos.coords.longitude);
   const speedMps = dist / dt;
   if (speedMps > 100) {
-    return { speedMps: null, source: 'رد شد: پرش غیرواقعی مکان' };
+    return { speedMps: null, source: 'Skipped: unrealistic position jump' };
   }
-  return { speedMps, source: 'Haversine (فاصله ÷ زمان، fallback)' };
+  return { speedMps, source: 'Haversine (distance ÷ time, fallback)' };
 }
 
 function handlePosition(pos) {
   errEl.textContent = '';
-  setStatus('فعال', 'live');
+  setStatus('Active', 'live');
 
   const c = pos.coords;
   const accuracy = c.accuracy;
-  accEl.textContent = accuracy != null ? accuracy.toFixed(1) + ' متر' : '-';
+  accEl.textContent = accuracy != null ? accuracy.toFixed(1) + ' m' : '-';
 
   let speedMps, source;
   if (c.speed != null && !Number.isNaN(c.speed)) {
     speedMps = c.speed;
-    source = 'position.coords.speed (GPS مستقیم)';
+    source = 'position.coords.speed (direct GPS)';
   } else {
     ({ speedMps, source } = computeFallbackSpeed(pos, accuracy));
   }
@@ -315,22 +315,22 @@ function handlePosition(pos) {
 
 function handleError(err) {
   const messages = {
-    [err.PERMISSION_DENIED]: 'دسترسی به موقعیت مکانی رد شد',
-    [err.POSITION_UNAVAILABLE]: 'موقعیت مکانی در دسترس نیست',
-    [err.TIMEOUT]: 'زمان دریافت موقعیت تمام شد'
+    [err.PERMISSION_DENIED]: 'Location permission was denied',
+    [err.POSITION_UNAVAILABLE]: 'Location is unavailable',
+    [err.TIMEOUT]: 'Location request timed out'
   };
-  errEl.textContent = messages[err.code] || ('خطای ناشناخته: ' + err.message);
-  setStatus('خطا', 'error');
+  errEl.textContent = messages[err.code] || ('Unknown error: ' + err.message);
+  setStatus('Error', 'error');
 }
 
 function start() {
   if (!navigator.geolocation) {
-    errEl.textContent = 'مرورگر شما از Geolocation پشتیبانی نمی‌کند';
+    errEl.textContent = 'Your browser does not support Geolocation';
     return;
   }
   lastFix = null;
   ema = null;
-  setStatus('در حال جستجوی GPS...');
+  setStatus('Searching for GPS...');
   watchId = navigator.geolocation.watchPosition(handlePosition, handleError, {
     enableHighAccuracy: true,
     maximumAge: 0,
@@ -345,7 +345,7 @@ function stop() {
     navigator.geolocation.clearWatch(watchId);
     watchId = null;
   }
-  setStatus('متوقف');
+  setStatus('Stopped');
   startBtn.style.display = 'inline-block';
   stopBtn.style.display = 'none';
 }
