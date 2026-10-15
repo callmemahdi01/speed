@@ -2,7 +2,7 @@
 <html lang="en" dir="ltr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>GPS Speedometer</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#000000">
@@ -21,13 +21,22 @@
     font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
   }
   body {
-    min-height: 100vh;
-    min-height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 14px 20px 20px;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr auto auto auto auto auto;
+    grid-template-areas: "top" "speed" "status" "meta" "error" "btn" "foot";
+    justify-items: center;
+    padding:
+      max(14px, env(safe-area-inset-top))
+      max(20px, env(safe-area-inset-right))
+      max(20px, env(safe-area-inset-bottom))
+      max(20px, env(safe-area-inset-left));
   }
 
   .icon-btn {
@@ -41,11 +50,13 @@
     align-items: center;
     justify-content: center;
     border-radius: 50%;
+    cursor: pointer;
   }
   .icon-btn svg { width: 20px; height: 20px; }
   .icon-btn.active { color: #fff; }
 
   .topbar {
+    grid-area: top;
     width: 100%;
     max-width: 340px;
     display: flex;
@@ -64,6 +75,8 @@
   }
 
   .speed-block {
+    grid-area: speed;
+    align-self: center;
     text-align: center;
     transition: transform 0.6s ease;
   }
@@ -71,22 +84,23 @@
     transform: translateY(var(--center-offset, 0px));
   }
   #speed {
-    font-size: 30vw;
+    font-size: min(30vw, 32vh, 22rem);
+    font-size: min(30vw, 32dvh, 22rem);
     font-weight: 700;
     line-height: 1;
-    letter-spacing: -3px;
+    letter-spacing: -0.01em;
     font-variant-numeric: tabular-nums;
-    color: #fff;
   }
   #unit {
-    font-size: 1rem;
+    font-size: clamp(0.8rem, 2.5dvh, 1.2rem);
     color: #666;
     margin-top: 4px;
     letter-spacing: 0.5px;
   }
 
   #status {
-    margin-top: 20px;
+    grid-area: status;
+    margin-top: clamp(6px, 2.5dvh, 20px);
     font-size: 0.95rem;
     color: #999;
     display: flex;
@@ -103,9 +117,10 @@
   #statusDot.error { background: #ff453a; }
 
   .meta {
+    grid-area: meta;
     width: 100%;
     max-width: 340px;
-    margin-top: 28px;
+    margin-top: clamp(8px, 3dvh, 28px);
     border-top: 1px solid #1c1c1e;
   }
   .meta-row {
@@ -121,37 +136,42 @@
     font-variant-numeric: tabular-nums;
   }
 
-  button {
+  button { font-family: inherit; }
+  #startBtn, #stopBtn {
+    grid-area: btn;
     font-size: 1.1rem;
     padding: 16px 48px;
-    margin-top: 36px;
+    margin-top: clamp(10px, 4dvh, 36px);
     border-radius: 100px;
     border: none;
     font-weight: 600;
+    cursor: pointer;
   }
   #startBtn { background: #fff; color: #000; }
   #stopBtn { background: #1c1c1e; color: #fff; }
 
   #error {
+    grid-area: error;
     color: #ff453a;
     font-size: 0.85rem;
-    margin-top: 16px;
+    margin-top: 12px;
     text-align: center;
     max-width: 300px;
   }
+  #error:empty { display: none; }
 
   .footer {
-    margin-top: auto;
-    padding-top: 30px;
+    grid-area: foot;
+    padding-top: clamp(8px, 3dvh, 30px);
   }
   #infoBtn {
     background: none;
+    border: none;
     color: #555;
     font-size: 0.8rem;
     padding: 8px;
-    margin: 0;
     text-decoration: underline;
-    font-weight: 400;
+    cursor: pointer;
   }
 
   #infoModal {
@@ -167,6 +187,8 @@
   #infoModal.open { display: flex; }
   .modal-box {
     max-width: 380px;
+    max-height: 100%;
+    overflow-y: auto;
     font-size: 0.85rem;
     color: #999;
     line-height: 1.8;
@@ -182,8 +204,43 @@
     margin: 24px auto 0;
     background: #1c1c1e;
     color: #fff;
+    border: none;
+    border-radius: 100px;
     padding: 12px 40px;
     font-size: 0.9rem;
+    cursor: pointer;
+  }
+
+  @media (min-aspect-ratio: 6/5) {
+    body {
+      grid-template-columns: minmax(0, 1fr) clamp(260px, 34vw, 380px);
+      grid-template-rows: auto 1fr auto auto auto auto auto 1fr;
+      grid-template-areas:
+        "speed top"
+        "speed ."
+        "speed status"
+        "speed meta"
+        "speed error"
+        "speed btn"
+        "speed foot"
+        "speed .";
+      column-gap: 16px;
+    }
+    #speed { font-size: min(24vw, 60vh, 22rem); font-size: min(24vw, 60dvh, 22rem); }
+    .topbar, .meta { max-width: none; }
+  }
+
+  @media (max-height: 520px) {
+    body { padding-top: max(6px, env(safe-area-inset-top)); padding-bottom: max(6px, env(safe-area-inset-bottom)); }
+    .icon-btn { width: 32px; height: 32px; }
+    #status { font-size: 0.8rem; }
+    .meta-row { padding: 5px 4px; font-size: 0.72rem; }
+    #startBtn, #stopBtn { padding: 10px 36px; font-size: 1rem; }
+    .footer { display: none; }
+  }
+
+  @media (max-height: 340px) {
+    .meta-row:nth-child(n+2) { display: none; }
   }
 </style>
 </head>
@@ -214,7 +271,7 @@
 <div id="error" class="fadeable"></div>
 
 <button id="startBtn" class="fadeable">Start</button>
-<button id="stopBtn" class="fadeable" style="display:none">Stop</button>
+<button id="stopBtn" class="fadeable" hidden>Stop</button>
 
 <div class="footer fadeable">
   <button id="infoBtn">How does this work?</button>
@@ -245,9 +302,7 @@ const startBtn = $('startBtn');
 const stopBtn = $('stopBtn');
 const fullscreenBtn = $('fullscreenBtn');
 const batteryBtn = $('batteryBtn');
-const infoBtn = $('infoBtn');
 const infoModal = $('infoModal');
-const closeInfo = $('closeInfo');
 const speedBlock = document.querySelector('.speed-block');
 
 const DEG_TO_RAD = Math.PI / 180;
@@ -267,10 +322,9 @@ function setText(el, value) {
   if (el.textContent !== value) el.textContent = value;
 }
 
-function setStatus(text, state) {
+function setStatus(text, state = '') {
   setText(statusText, text);
-  const cls = state || '';
-  if (statusDot.className !== cls) statusDot.className = cls;
+  if (statusDot.className !== state) statusDot.className = state;
 }
 
 function haversine(lat1, lon1, lat2, lon2) {
@@ -286,18 +340,11 @@ function computeFallbackSpeed(pos, accuracy) {
   if (!lastFix) return { speedMps: null, source: 'Waiting for second fix (fallback)' };
 
   const dt = (pos.timestamp - lastFix.timestamp) / 1000;
-  if (!(dt > 0 && dt < 30 && Number.isFinite(dt))) {
-    return { speedMps: null, source: 'Skipped: invalid time interval' };
-  }
-  if (accuracy != null && accuracy > 50) {
-    return { speedMps: null, source: 'Skipped: poor GPS accuracy (>50m)' };
-  }
+  if (!(dt > 0 && dt < 30)) return { speedMps: null, source: 'Skipped: invalid time interval' };
+  if (accuracy != null && accuracy > 50) return { speedMps: null, source: 'Skipped: poor GPS accuracy (>50m)' };
 
-  const dist = haversine(lastFix.lat, lastFix.lon, pos.coords.latitude, pos.coords.longitude);
-  const speedMps = dist / dt;
-  if (speedMps > 100) {
-    return { speedMps: null, source: 'Skipped: unrealistic position jump' };
-  }
+  const speedMps = haversine(lastFix.lat, lastFix.lon, pos.coords.latitude, pos.coords.longitude) / dt;
+  if (speedMps > 100) return { speedMps: null, source: 'Skipped: unrealistic position jump' };
   return { speedMps, source: 'Haversine (distance ÷ time, fallback)' };
 }
 
@@ -347,7 +394,7 @@ function handleError(err) {
     [err.POSITION_UNAVAILABLE]: 'Location is unavailable',
     [err.TIMEOUT]: 'Location request timed out'
   };
-  setText(errEl, messages[err.code] || ('Unknown error: ' + err.message));
+  setText(errEl, messages[err.code] || 'Unknown error: ' + err.message);
   setStatus('Error', 'error');
 }
 
@@ -383,25 +430,27 @@ function releaseWakeLock() {
   wakeLock = null;
 }
 
+function setTracking(on) {
+  tracking = on;
+  startBtn.hidden = on;
+  stopBtn.hidden = !on;
+}
+
 function start() {
   if (!navigator.geolocation) {
     setText(errEl, 'Your browser does not support Geolocation');
     return;
   }
-  tracking = true;
+  setTracking(true);
   beginWatch();
   acquireWakeLock();
-  startBtn.style.display = 'none';
-  stopBtn.style.display = 'inline-block';
 }
 
 function stop() {
-  tracking = false;
+  setTracking(false);
   endWatch();
   releaseWakeLock();
   setStatus('Stopped');
-  startBtn.style.display = 'inline-block';
-  stopBtn.style.display = 'none';
 }
 
 function scheduleDim() {
@@ -411,7 +460,7 @@ function scheduleDim() {
 
   dimTimer = setTimeout(() => {
     const rect = speedBlock.getBoundingClientRect();
-    const offset = window.innerHeight / 2 - (rect.top + rect.height / 2);
+    const offset = innerHeight / 2 - (rect.top + rect.height / 2);
     document.documentElement.style.setProperty('--center-offset', offset + 'px');
     document.body.classList.add('dimmed');
   }, DIM_DELAY_MS);
@@ -421,11 +470,8 @@ startBtn.addEventListener('click', start);
 stopBtn.addEventListener('click', stop);
 
 fullscreenBtn.addEventListener('click', () => {
-  if (document.fullscreenElement) {
-    document.exitFullscreen();
-  } else {
-    document.documentElement.requestFullscreen().catch(() => {});
-  }
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(() => {});
 });
 document.addEventListener('fullscreenchange', () => {
   fullscreenBtn.classList.toggle('active', !!document.fullscreenElement);
@@ -446,11 +492,12 @@ batteryBtn.addEventListener('click', () => {
   scheduleDim();
 });
 document.addEventListener('pointerdown', scheduleDim);
+addEventListener('resize', scheduleDim);
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 
-infoBtn.addEventListener('click', () => infoModal.classList.add('open'));
-closeInfo.addEventListener('click', () => infoModal.classList.remove('open'));
+$('infoBtn').addEventListener('click', () => infoModal.classList.add('open'));
+$('closeInfo').addEventListener('click', () => infoModal.classList.remove('open'));
 </script>
 </body>
 </html>
